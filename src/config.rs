@@ -32,6 +32,8 @@ pub struct AppSpec {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PositionSpec {
+    #[serde(default)]
+    pub monitor: Option<u32>,
     pub x: i32,
     pub y: i32,
     pub width: i32,

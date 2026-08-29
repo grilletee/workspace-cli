@@ -5,7 +5,7 @@ use anyhow::Result;
 use serde::Serialize;
 
 use crate::config::{AppSpec, Profile};
-use crate::{launcher, positioner};
+use crate::{launcher, monitor_resolver, positioner, winapi_safe};
 
 #[derive(Debug, Serialize)]
 pub struct Rect {
@@ -25,12 +25,24 @@ pub struct AppResult {
 }
 
 pub fn run_profile(profile: &Profile) -> Vec<AppResult> {
+    let monitors = match winapi_safe::enumerate_monitors() {
+        Ok(monitors) => monitors,
+        Err(error) => {
+            return profile
+                .apps
+                .iter()
+                .map(|app| AppResult::error(app.name.clone(), format!("{:#?}", error)))
+                .collect();
+        }
+    };
+
     let handles: Vec<_> = profile
         .apps
         .iter()
         .map(|app| {
             let app = app.clone();
-            thread::spawn(move || run_app(&app).map_err(|error| error))
+            let monitors = monitors.clone();
+            thread::spawn(move || run_app(&app, &monitors).map_err(|error| error))
         })
         .collect();
 
@@ -59,7 +71,7 @@ pub fn run_profile(profile: &Profile) -> Vec<AppResult> {
         .collect()
 }
 
-fn run_app(app: &AppSpec) -> Result<AppResult> {
+fn run_app(app: &AppSpec, monitors: &[winapi_safe::MonitorInfo]) -> Result<AppResult> {
     if app.launch_delay_ms > 0 {
         thread::sleep(Duration::from_millis(app.launch_delay_ms));
     }
@@ -67,12 +79,13 @@ fn run_app(app: &AppSpec) -> Result<AppResult> {
     let pid = launcher::spawn_detached(&app.path, &app.args)?;
     let window = launcher::resolve_window(pid, app.timeout_ms)?;
     let applied_position = app.position.as_ref().map_or(Ok(None), |position| {
+        let absolute = monitor_resolver::resolve_absolute_rect(position, monitors)?;
         positioner::set_window_position(
             window.hwnd_value,
-            position.x,
-            position.y,
-            position.width,
-            position.height,
+            absolute.left,
+            absolute.top,
+            absolute.right - absolute.left,
+            absolute.bottom - absolute.top,
         )
         .map(|rect| {
             Some(Rect {

@@ -1,6 +1,7 @@
 mod cli;
 mod config;
 mod launcher;
+mod monitor_resolver;
 mod orchestrator;
 mod positioner;
 mod winapi_safe;
