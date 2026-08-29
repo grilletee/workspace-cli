@@ -11,4 +11,15 @@ pub struct Cli {
 pub enum Command {
     /// Inspect visible top-level windows.
     Inspect,
+    /// Launch one application and resolve its resulting window.
+    TestLaunch {
+        /// Executable path to launch.
+        path: String,
+        /// Arguments passed to the executable.
+        #[arg(long = "args", value_delimiter = ' ')]
+        args: Vec<String>,
+        /// Maximum time to wait for a visible window.
+        #[arg(long, default_value_t = 5000)]
+        timeout_ms: u64,
+    },
 }

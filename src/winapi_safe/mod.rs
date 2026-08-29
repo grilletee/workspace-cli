@@ -1,12 +1,19 @@
 use serde::Serialize;
 use thiserror::Error;
-use windows::Win32::Foundation::{BOOL, HWND, LPARAM, RECT};
+use windows::Win32::Foundation::{BOOL, CloseHandle, HWND, LPARAM, RECT, STILL_ACTIVE};
 use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetClassNameW, GetWindowRect, GetWindowTextW, GetWindowThreadProcessId,
     IsWindowVisible,
 };
+use windows::Win32::System::Diagnostics::ToolHelp::{
+    CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
+    TH32CS_SNAPPROCESS,
+};
+use windows::Win32::System::Threading::{
+    GetExitCodeProcess, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
+};
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct WindowInfo {
     pub process_id: u32,
     pub title: String,
@@ -17,14 +24,23 @@ pub struct WindowInfo {
     pub bottom: i32,
 }
 
-#[derive(Debug, Error)]
+#[derive(Clone, Debug, Error)]
 pub enum WinApiError {
     #[error("EnumWindows failed")]
     EnumerationFailed,
     #[error("GetWindowRect failed")]
     GetWindowRectFailed,
+    #[error("CreateToolhelp32Snapshot failed")]
+    ProcessSnapshotFailed,
+    #[error("Process snapshot iteration failed")]
+    ProcessIterationFailed,
+    #[error("OpenProcess failed for PID {0}")]
+    OpenProcessFailed(u32),
+    #[error("GetExitCodeProcess failed for PID {0}")]
+    GetExitCodeProcessFailed(u32),
 }
 
+#[derive(Debug, Clone)]
 struct EnumerationContext {
     windows: Vec<WindowInfo>,
     error: Option<WinApiError>,
@@ -76,6 +92,59 @@ unsafe extern "system" fn enum_windows_callback(hwnd: HWND, lparam: LPARAM) -> B
     } else {
         BOOL(1)
     }
+}
+
+pub fn is_process_alive(pid: u32) -> Result<bool, WinApiError> {
+    // SAFETY: The requested access is read-only and the PID is supplied by the caller.
+    let process = match unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) } {
+        Ok(h) => h,
+        Err(_) => return Ok(false),
+    };
+
+    let mut exit_code = 0u32;
+    // SAFETY: `process` is a valid handle returned by OpenProcess and `exit_code` is writable.
+    let result = unsafe { GetExitCodeProcess(process, &mut exit_code) };
+    // SAFETY: The handle is owned by this function and is closed exactly once.
+    let _ = unsafe { CloseHandle(process) };
+
+    result
+        .map_err(|_| WinApiError::GetExitCodeProcessFailed(pid))?;
+    Ok(exit_code == STILL_ACTIVE.0 as u32)
+}
+
+pub fn child_processes(parent_process_id: u32) -> Result<Vec<u32>, WinApiError> {
+    // SAFETY: This requests a process snapshot owned by this function.
+    let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) }
+        .map_err(|_| WinApiError::ProcessSnapshotFailed)?;
+
+    let mut entry = PROCESSENTRY32W {
+        dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32,
+        ..Default::default()
+    };
+    let mut children = Vec::new();
+
+    // SAFETY: `snapshot` is valid and `entry` has its required size initialized.
+    let first_result = unsafe { Process32FirstW(snapshot, &mut entry) };
+    if first_result.is_err() {
+        // SAFETY: The snapshot handle is owned by this function.
+        let _ = unsafe { CloseHandle(snapshot) };
+        return Err(WinApiError::ProcessIterationFailed);
+    }
+
+    loop {
+        if entry.th32ParentProcessID == parent_process_id {
+            children.push(entry.th32ProcessID);
+        }
+
+        // SAFETY: `snapshot` and `entry` remain valid for the iteration.
+        if unsafe { Process32NextW(snapshot, &mut entry) }.is_err() {
+            break;
+        }
+    }
+
+    // SAFETY: The snapshot handle is owned by this function and is closed exactly once.
+    let _ = unsafe { CloseHandle(snapshot) };
+    Ok(children)
 }
 
 fn window_info(hwnd: HWND) -> Result<WindowInfo, WinApiError> {
