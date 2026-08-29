@@ -1,10 +1,9 @@
 use serde::Serialize;
 use thiserror::Error;
-use windows::core::PWSTR;
-use windows::Win32::Foundation::{BOOL, RECT};
+use windows::Win32::Foundation::{BOOL, HWND, LPARAM, RECT};
 use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetClassNameW, GetWindowRect, GetWindowTextW, GetWindowThreadProcessId,
-    IsWindowVisible, HWND,
+    IsWindowVisible,
 };
 
 #[derive(Debug, Serialize)]
@@ -43,7 +42,7 @@ pub fn enumerate_visible_windows() -> Result<Vec<WindowInfo>, WinApiError> {
     let result = unsafe {
         EnumWindows(
             Some(enum_windows_callback),
-            windows::Win32::Foundation::LPARAM(&mut context as *mut _ as isize),
+            LPARAM(&mut context as *mut _ as isize),
         )
     };
 
@@ -51,17 +50,17 @@ pub fn enumerate_visible_windows() -> Result<Vec<WindowInfo>, WinApiError> {
         return Err(error);
     }
 
-    if !result.as_bool() {
+    if result.is_err() {
         return Err(WinApiError::EnumerationFailed);
     }
 
     Ok(context.windows)
 }
 
-unsafe extern "system" fn enum_windows_callback(hwnd: HWND, lparam: isize) -> BOOL {
+unsafe extern "system" fn enum_windows_callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
     // SAFETY: The caller provides a valid pointer to EnumerationContext for the duration
     // of EnumWindows, and this callback is invoked synchronously by that API.
-    let context = unsafe { &mut *(lparam as *mut EnumerationContext) };
+    let context = unsafe { &mut *(lparam.0 as *mut EnumerationContext) };
 
     if !IsWindowVisible(hwnd).as_bool() {
         return BOOL(1);
@@ -91,7 +90,7 @@ fn window_info(hwnd: HWND) -> Result<WindowInfo, WinApiError> {
     let mut rect = RECT::default();
 
     // SAFETY: `hwnd` is supplied by EnumWindows and `rect` is a valid output pointer.
-    if !unsafe { GetWindowRect(hwnd, &mut rect) }.as_bool() {
+    if unsafe { GetWindowRect(hwnd, &mut rect) }.is_err() {
         return Err(WinApiError::GetWindowRectFailed);
     }
 
@@ -107,15 +106,14 @@ fn window_info(hwnd: HWND) -> Result<WindowInfo, WinApiError> {
 }
 
 fn get_window_string(hwnd: HWND, title: bool) -> String {
-    let mut buffer = vec![0u16; 1024];
+    let mut buffer = [0u16; 1024];
 
-    // SAFETY: `buffer` is writable, has the declared capacity, and its pointer is valid for
-    // the duration of the synchronous Win32 call.
+    // SAFETY: `buffer` is writable and remains valid for the duration of the synchronous call.
     let length = unsafe {
         if title {
-            GetWindowTextW(hwnd, PWSTR(buffer.as_mut_ptr()), buffer.len() as i32)
+            GetWindowTextW(hwnd, &mut buffer)
         } else {
-            GetClassNameW(hwnd, PWSTR(buffer.as_mut_ptr()), buffer.len() as i32)
+            GetClassNameW(hwnd, &mut buffer)
         }
     };
 
