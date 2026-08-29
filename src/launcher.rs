@@ -1,5 +1,5 @@
 use std::os::windows::process::CommandExt;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -18,6 +18,8 @@ pub fn spawn_detached(path: &str, args: &[String]) -> Result<u32> {
 
     match Command::new(path)
         .args(args)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .creation_flags(flags)
         .spawn()
     {
@@ -31,6 +33,8 @@ pub fn spawn_detached(path: &str, args: &[String]) -> Result<u32> {
             let fallback_flags = CREATE_NEW_PROCESS_GROUP.0 | DETACHED_PROCESS.0;
             Command::new(path)
                 .args(args)
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
                 .creation_flags(fallback_flags)
                 .spawn()
                 .with_context(|| {

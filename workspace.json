@@ -1,0 +1,22 @@
+{
+  "profiles": {
+    "dev": {
+      "apps": [
+        {
+          "name": "bloc_de_notas",
+          "path": "notepad.exe",
+          "position": { "x": 0, "y": 0, "width": 960, "height": 1080 },
+          "launch_delay_ms": 0,
+          "timeout_ms": 5000
+        },
+        {
+          "name": "vscode",
+          "path": "C:\\Users\\grill\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe",
+          "position": { "x": 960, "y": 0, "width": 960, "height": 1080 },
+          "launch_delay_ms": 500,
+          "timeout_ms": 8000
+        }
+      ]
+    }
+  }
+}

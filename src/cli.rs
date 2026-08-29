@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap::{Parser, Subcommand};
 
 #[derive(Debug, Parser)]
@@ -33,5 +35,13 @@ pub enum Command {
         /// Requested window height.
         #[arg(long)]
         height: Option<i32>,
+    },
+    /// Launch all applications from a workspace profile.
+    Start {
+        /// Profile name to launch.
+        profile: String,
+        /// Workspace configuration path.
+        #[arg(long, default_value = "./workspace.json")]
+        config: PathBuf,
     },
 }
