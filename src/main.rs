@@ -1,20 +1,31 @@
 mod cli;
 mod launcher;
+mod positioner;
 mod winapi_safe;
 
 use std::time::Instant;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use clap::Parser;
 use cli::{Cli, Command};
 use serde::Serialize;
 use tracing_subscriber::EnvFilter;
 
 #[derive(Debug, Serialize)]
+struct Position {
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+}
+
+#[derive(Debug, Serialize)]
 struct TestLaunchSuccess {
     original_pid: u32,
     resolved_pid: u32,
     window: winapi_safe::WindowInfo,
+    requested_position: Option<Position>,
+    applied_position: Option<Position>,
     elapsed_ms: u128,
 }
 
@@ -53,33 +64,71 @@ fn run() -> Result<()> {
             path,
             args,
             timeout_ms,
+            x,
+            y,
+            width,
+            height,
         } => {
+            let requested_position = match (x, y, width, height) {
+                (None, None, None, None) => None,
+                (Some(x), Some(y), Some(width), Some(height)) => {
+                    Some(Position { x, y, width, height })
+                }
+                _ => {
+                    return emit_test_launch_error(anyhow!(
+                        "--x, --y, --width and --height must be provided together"
+                    ));
+                }
+            };
+
             let started = Instant::now();
-            match launcher::spawn_detached(&path, &args)
-                .and_then(|original_pid| {
-                    launcher::resolve_window(original_pid, timeout_ms)
-                        .map(|window| (original_pid, window))
-                }) {
-                Ok((original_pid, window)) => {
+            match launcher::spawn_detached(&path, &args).and_then(|original_pid| {
+                launcher::resolve_window(original_pid, timeout_ms).and_then(|window| {
+                    let applied_position = requested_position.as_ref().map_or(Ok(None), |position| {
+                        positioner::set_window_position(
+                            window.hwnd_value,
+                            position.x,
+                            position.y,
+                            position.width,
+                            position.height,
+                        )
+                        .map(|rect| {
+                            Some(Position {
+                                x: rect.left,
+                                y: rect.top,
+                                width: rect.right - rect.left,
+                                height: rect.bottom - rect.top,
+                            })
+                        })
+                    })?;
+
+                    Ok((original_pid, window, applied_position))
+                })
+            }) {
+                Ok((original_pid, window, applied_position)) => {
                     let result = TestLaunchSuccess {
                         original_pid,
                         resolved_pid: window.process_id,
                         window,
+                        requested_position,
+                        applied_position,
                         elapsed_ms: started.elapsed().as_millis(),
                     };
                     println!("{}", serde_json::to_string(&result)?);
                 }
-                Err(error) => {
-                    let result = TestLaunchError {
-                        status: "error",
-                        message: format!("{error:#}"),
-                    };
-                    println!("{}", serde_json::to_string(&result)?);
-                    std::process::exit(1);
-                }
+                Err(error) => return emit_test_launch_error(error),
             }
         }
     }
 
     Ok(())
+}
+
+fn emit_test_launch_error(error: anyhow::Error) -> Result<()> {
+    let result = TestLaunchError {
+        status: "error",
+        message: format!("{error:#}"),
+    };
+    println!("{}", serde_json::to_string(&result)?);
+    std::process::exit(1);
 }

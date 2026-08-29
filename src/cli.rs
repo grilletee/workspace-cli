@@ -21,5 +21,17 @@ pub enum Command {
         /// Maximum time to wait for a visible window.
         #[arg(long, default_value_t = 5000)]
         timeout_ms: u64,
+        /// Requested window X coordinate.
+        #[arg(long)]
+        x: Option<i32>,
+        /// Requested window Y coordinate.
+        #[arg(long)]
+        y: Option<i32>,
+        /// Requested window width.
+        #[arg(long)]
+        width: Option<i32>,
+        /// Requested window height.
+        #[arg(long)]
+        height: Option<i32>,
     },
 }

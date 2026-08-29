@@ -15,6 +15,7 @@ use windows::Win32::System::Threading::{
 
 #[derive(Clone, Debug, Serialize)]
 pub struct WindowInfo {
+    pub hwnd_value: isize,
     pub process_id: u32,
     pub title: String,
     pub class_name: String,
@@ -34,8 +35,6 @@ pub enum WinApiError {
     ProcessSnapshotFailed,
     #[error("Process snapshot iteration failed")]
     ProcessIterationFailed,
-    #[error("OpenProcess failed for PID {0}")]
-    OpenProcessFailed(u32),
     #[error("GetExitCodeProcess failed for PID {0}")]
     GetExitCodeProcessFailed(u32),
 }
@@ -164,6 +163,7 @@ fn window_info(hwnd: HWND) -> Result<WindowInfo, WinApiError> {
     }
 
     Ok(WindowInfo {
+        hwnd_value: hwnd.0 as isize,
         process_id,
         title,
         class_name,
