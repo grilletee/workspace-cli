@@ -1,7 +1,0 @@
-C:\Users\grill\Desktop\workspace-cli\target\debug\deps\smallvec-248ad89bb3f303a8.d: C:\Users\grill\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\smallvec-1.15.2\src\lib.rs
-
-C:\Users\grill\Desktop\workspace-cli\target\debug\deps\libsmallvec-248ad89bb3f303a8.rlib: C:\Users\grill\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\smallvec-1.15.2\src\lib.rs
-
-C:\Users\grill\Desktop\workspace-cli\target\debug\deps\libsmallvec-248ad89bb3f303a8.rmeta: C:\Users\grill\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\smallvec-1.15.2\src\lib.rs
-
-C:\Users\grill\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\smallvec-1.15.2\src\lib.rs:
