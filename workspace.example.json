@@ -1,0 +1,45 @@
+{
+  "profiles": {
+    "dev_flow": {
+      "apps": [
+        {
+          "name": "vscode",
+          "path": "C:\\Users\\TU_USUARIO\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe",
+          "position": { "monitor": 1, "x": 0, "y": 0, "width": 1920, "height": 1080 },
+          "launch_delay_ms": 0,
+          "timeout_ms": 8000
+        },
+        {
+          "name": "chrome_gemini",
+          "path": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+          "args": ["--new-window", "https://gemini.google.com"],
+          "position": { "monitor": 1, "x": 0, "y": 0, "width": 1920, "height": 1080 },
+          "launch_delay_ms": 500,
+          "timeout_ms": 5000
+        },
+        {
+          "name": "notepad_flotante",
+          "path": "notepad.exe",
+          "position": { "monitor": 1, "x": 460, "y": 340, "width": 1000, "height": 400 },
+          "launch_delay_ms": 1500,
+          "timeout_ms": 5000
+        },
+        {
+          "name": "claude",
+          "path": "C:\\Users\\TU_USUARIO\\AppData\\Local\\Programs\\Claude\\Claude.exe",
+          "position": { "monitor": 2, "x": 0, "y": 0, "width": 1920, "height": 1080 },
+          "launch_delay_ms": 0,
+          "timeout_ms": 8000
+        },
+        {
+          "name": "terminal_flotante",
+          "path": "wt.exe",
+          "args": ["-w", "new"],
+          "position": { "monitor": 2, "x": 460, "y": 340, "width": 1000, "height": 400 },
+          "launch_delay_ms": 1500,
+          "timeout_ms": 5000
+        }
+      ]
+    }
+  }
+}
